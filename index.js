@@ -1,8 +1,8 @@
 const Discord = require("discord.js");
 var logger = require('winston');
 var auth = require('./auth.json');
-const Report = require("./models/reports.js");
-
+const ReportPap = require("./models/reports.js");
+var emote = require('./LectureEmote.js');
 const mongoose = require("mongoose");
 mongoose.connect('mongodb://localhost/Reports',{ useNewUrlParser: true, useUnifiedTopology: true });
 mongoose.set('useFindAndModify', false);
@@ -28,6 +28,19 @@ bot.on('ready', function () {
 const prefixAvec = "expédition";
 const prefixSans = "expedition";
 const prefixEnd = "end session";
+const prefixKill = "kill";
+const prefixBye = "bye";
+
+const prefixRaid = "raid";
+
+const prefixFouille = "je fouille";
+
+const tabGalvagon = ["Galvagla","Hydragon","Hydragla"];
+const tabGalvagla = ["Galvagon","Hydragon","Hydragla"];
+const tabHydragon = ["Galvagon","Galvagla","Hydragla"];
+const tabHydragla = ["Galvagon","Galvagla","Hydragon"];
+
+const prefixClean = "blanco";
 
 let tempMessage;
 let linkPokemon;
@@ -40,20 +53,199 @@ bot.on('message', async function (message, user) {
     // arrête la lecture du message si l'auteur est le bot.
 if (message.author.bot) return;
 
-if (petitMessage.startsWith(prefixEnd)){
-    var ficheCmd = await Report.findOne({ userId: message.author.id }, 'channelId' );
-    if(message.channel.id==ficheCmd.channelId){
+if (message.channel.parent==auth.categorieMonche){
+    if(petitMessage.startsWith(prefixClean)&&(message.member.roles.cache.has(auth.roleStaff)||message.member.roles.cache.has(auth.roleMonche))&&(!message.member.roles.cache.has(auth.roleMuteMonche))) {
+        message.delete();
 
-    var ficheFin = await Report.findOne({userId: message.author.id});
+        const argsNumber = message.content.split(' ').slice(1); // All arguments behind the command name with the prefix
+        const quantite = argsNumber.join(' '); // Amount of messages which should be deleted
+
+        if (!quantite) return message.reply(" vous n'avez pas saisi de valeur à chercher.").then(msg => msg.delete({ timeout: 5000 }));
+        if (isNaN(quantite)) return message.reply(" le paramètre que vous avez saisi n'est pas un nombre.").then(msg => msg.delete({ timeout: 5000 }));
+        if (quantite>100) return message.reply(" le nombre de message à effacer est trop grand.").then(msg => msg.delete({ timeout: 5000 }));
+
+        const fetched = await message.channel.messages.fetch({ limit: quantite });
+        const notPinned = await fetched.filter(fetchedMsg => !fetchedMsg.pinned);
+        await message.channel.bulkDelete(notPinned);
+    }
+}
+
+
+if (message.channel.id==auth.salonFossile){
+    if(petitMessage.startsWith(prefixFouille)&&message.member.roles.cache.has(auth.roleAvantFouille)&&!message.member.roles.cache.has(auth.roleApresFouille)){
+        await setTimeout(function() {message.delete()}, 10);
+
+        emoteFossiles = await emote.check(bot, message);
+        console.log("tabTemp0 : "+emoteFossiles[0]);
+        console.log("tabTemp1 : "+emoteFossiles[1]);
+        console.log("tabTemp2 : "+emoteFossiles[2]);
+        console.log("tabTemp2 : "+emoteFossiles[3]);
+
+        var totalFossiles = (emoteFossiles[0]*1)+(emoteFossiles[1]*2)+(emoteFossiles[2]*4)+(emoteFossiles[3]*8);
+
+        console.log("totalFossiles : "+totalFossiles);
+
+        var quelFossile = Math.floor(totalFossiles%4);
+        var autreFossile = Math.floor((Math.random()*3));
+
+        switch (quelFossile) {
+            case 0 :
+                console.log("Galvagon");
+                console.log(tabGalvagon[autreFossile]);
+                await message.channel.send("Bravo <@"+message.author.id+"> ! Ta fouille t'a permis de remporter Galvagon et "+tabGalvagon[autreFossile]+" !").then(async pourPin => {pourPin.pin();});
+            break;
+            case 1 :
+                console.log("Galvagla");
+                console.log(tabGalvagla[autreFossile]);
+                await message.channel.send("Bravo <@"+message.author.id+"> ! Ta fouille t'a permis de remporter Galvagla et "+tabGalvagla[autreFossile]+" !").then(async pourPin => {pourPin.pin();});
+            break;
+            case 2 : 
+                console.log("Hydragon");
+                console.log(tabHydragon[autreFossile]);
+                await message.channel.send("Bravo <@"+message.author.id+"> ! Ta fouille t'a permis de remporter Hydragon et "+tabHydragon[autreFossile]+" !").then(async pourPin => {pourPin.pin();});
+            break;
+            case 3 : 
+                console.log("Hydragla");
+                console.log(tabHydragla[autreFossile]);
+                await message.channel.send("Bravo <@"+message.author.id+"> ! Ta fouille t'a permis de remporter Hydragla et "+tabHydragla[autreFossile]+" !").then(async pourPin => {pourPin.pin();});
+            break;
+            default : break;
+        }
+
+
+        await message.guild.members.fetch(message.author.id).then((auteurRaid) => {
+                        auteurRaid.roles.add(auth.roleApresFouille);})
+        return;
+
+    }else if(petitMessage.startsWith(prefixFouille)&&message.member.roles.cache.has(auth.roleApresFouille)){
+        await setTimeout(function() {message.delete()}, 10);
+        await message.channel.send("Désolé <@"+message.author.id+"> ! Mais tu as déjà effectué ta fouille !")
+        return;
+    }else{return;}
+}
+
+
+if (petitMessage.startsWith(prefixRaid)&&message.member.roles.cache.has(auth.roleStaff) ) {
+    await setTimeout(function() {message.delete()}, 100);
+    var emoteRaid = ":grey_question:";
+    const infoRaid = await message.content.split(' ').slice(1);
+
+    if (!infoRaid[0]) return message.reply(" vous n'avez pas saisi d'emote à afficher.").then(msg => msg.delete({ timeout: 5000 }));
+
+    var str = infoRaid[0];
+    var one = str.split(":");
+    var two = one[2];
+    if(two)
+        {var res = two.slice(0, 18);}
+    else{var res = infoRaid[0]}
+
+    if (!infoRaid[1]) return message.reply(" vous n'avez pas saisi de nombre d'étoiles à afficher.").then(msg => msg.delete({ timeout: 5000 }));
+    if (isNaN(infoRaid[1])) return message.reply(" le paramètre que vous avez saisi n'est pas un nombre d'étoiles.").then(msg => msg.delete({ timeout: 5000 }));
+
+    if(infoRaid[1]==1)
+        {emoteRaid = ":star:";}
+    else if(infoRaid[1]==2)
+        {emoteRaid = ":star: :star:";}
+    else if(infoRaid[1]==3)
+        {emoteRaid = ":star: :star: :star:";}
+    else if(infoRaid[1]==4)
+        {emoteRaid = ":star: :star: :star: :star:";}
+    else if(infoRaid[1]==5)
+        {emoteRaid = ":star: :star: :star: :star: :star:";}
+
+    message.guild.channels.cache.get(auth.salonRaid).send(infoRaid[0]+" "+emoteRaid).then(async sentClue => {await sentClue.react(res);});
+    return;
+}
+
+
+if (petitMessage.startsWith(prefixKill)&&message.member.roles.cache.has(auth.roleStaff)&&message.channel.id==auth.channelInfos){
+        
+        await setTimeout(function() {message.delete()}, 10);
+        console.log("coucou");
+
+        const taggedUser = message.mentions.users.first();
+
+        if (!taggedUser) return message.author.send("Vous n'avez pas saisi de pseudo à chercher.").then(msg => msg.delete({ timeout: 10000 }));
+        if (isNaN(taggedUser)) return message.author.send("Le paramètre que vous avez saisi n'est pas un pseudo.").then(msg => msg.delete({ timeout: 10000 }));
+
+        const NicknameOut = await bot.users.fetch(taggedUser.id);
+
+        var ficheFin = await ReportPap.findOne({userId: NicknameOut.id});
+
+        // si pas de fiche existante, on créé la fiche
+        if (!ficheFin) { 
+            return message.author.send("Désolé ! Mais "+NicknameOut.username+" n'a pas d'expédition en cours !").then(msg => msg.delete({ timeout: 15000 }));
+        }
 
             const fetchedChannelVocal = message.guild.channels.cache.get(ficheFin.channelVocalId).delete();
             const fetchedChannel = message.guild.channels.cache.get(ficheFin.channelId).delete();
             const fetchedRole = message.guild.roles.cache.get(ficheFin.roleId).delete();
             const InitChannel = message.guild.channels.cache.get(auth.channelInfos);
-            const test = await InitChannel.messages.cache.get(ficheFin.messageId).delete();
+            console.log(InitChannel);
+            await InitChannel.messages.cache.get(ficheFin.messageId).delete();
 
-            await Report.findOneAndUpdate({ userId: message.author.id }, { trainer:0,messageId:0,roleId:0,channelId:0,channelVocalId:0,collectorId:0,time:Date() });
+            await ReportPap.deleteOne({ userId: NicknameOut.id })
+
+            //await ReportPap.findOneAndUpdate({ userId: NicknameOut.id }, { trainer:0,messageId:0,roleId:0,channelId:0,channelVocalId:0,collectorId:0,time:Date() });
 };
+
+
+
+if (petitMessage.startsWith(prefixBye)){
+    var ficheCmd = await ReportPap.findOne({ userId: message.author.id });
+        // si pas de fiche existante, on stop
+        if (!ficheCmd) { 
+            return;
+             }
+
+    if((message.channel.id==ficheCmd.channelId||message.channel.id==auth.channelInfos)&&(message.author.id==ficheCmd.userId||message.author.id==auth.roleStaff)){
+
+        await setTimeout(function() {message.delete()}, 10);
+        const taggedUser = message.mentions.users.first();
+
+        if (!taggedUser) return message.author.send("Vous n'avez pas saisi de pseudo à chercher.").then(msg => msg.delete({ timeout: 10000 }));
+        if (isNaN(taggedUser)) return message.author.send("Le paramètre que vous avez saisi n'est pas un pseudo.").then(msg => msg.delete({ timeout: 10000 }));
+
+        const NicknameOut = await bot.users.fetch(taggedUser.id);
+        const fetchedRole = message.guild.roles.cache.get(ficheCmd.roleId);
+
+        const msg = await message.guild.channels.cache.get(auth.channelInfos).messages.fetch(ficheCmd.messageId);
+        msg.reactions.resolve(auth.emoteDynamax).users.remove(NicknameOut.id);
+
+        await message.guild.members.fetch(NicknameOut.id).then((personKicked) => {
+                    personKicked.roles.remove(fetchedRole);})
+    
+    };
+};
+
+
+
+if (petitMessage.startsWith(prefixEnd)){
+    var ficheCmd = await ReportPap.findOne({ userId: message.author.id }, 'channelId' );
+
+        // si pas de fiche existante, on créé la fiche
+        if (!ficheCmd) { 
+            return;
+             }
+
+
+    if(message.channel.id==ficheCmd.channelId||message.channel.id==auth.channelInfos){
+
+        await setTimeout(function() {message.delete()}, 10);
+
+    var ficheFin = await ReportPap.findOne({userId: message.author.id});
+
+            const fetchedChannelVocal = message.guild.channels.cache.get(ficheFin.channelVocalId).delete();
+            const fetchedChannel = message.guild.channels.cache.get(ficheFin.channelId).delete();
+            const fetchedRole = message.guild.roles.cache.get(ficheFin.roleId).delete();
+            const InitChannel = message.guild.channels.cache.get(auth.channelInfos);
+            await InitChannel.messages.cache.get(ficheFin.messageId).delete();
+
+
+            await ReportPap.deleteOne({ userId: message.author.id })
+
+    
+    };
 };
 
 if (message.channel.id==auth.channelInfos){
@@ -132,7 +324,7 @@ if (message.channel.id==auth.channelInfos){
             case "pierroteknik" : Pokemonname = Pokemon.toUpperCase(); console.log(Pokemonname); linkPokemon = 'https://img.game8.jp/2217849/b49e7d05844c7ef9719d02ca627a9684.png/show';break;
             default : Pokemonname = "MYSTÈRE"; console.log(Pokemonname); linkPokemon = "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f8/Question_mark_alternate.svg/langfr-180px-Question_mark_alternate.svg.png";break;}
 
-        var fiche = await Report.findOne({userId: message.author.id});
+        var fiche = await ReportPap.findOne({userId: message.author.id});
 
         // si pas de fiche existante, on créé la fiche
         if (!fiche) { 
@@ -145,6 +337,7 @@ if (message.channel.id==auth.channelInfos){
             name: 'expédition-'+message.author.username,
             color: 'WHITE',
                 },
+            permissionOverwrites: [{deny:['MENTION_EVERYONE']}],
             reason: "Voici le rôle de l'expédition proposé par : "+message.author.username,
         })
 
@@ -181,29 +374,42 @@ if (message.channel.id==auth.channelInfos){
                 })
 
         //update la fiche de l'autheur.
-        await Report.findOneAndUpdate({ userId: message.author.id }, { trainer: message.author.username, roleId: tempRole, channelId: tempChannel, channelVocalId: tempChannelVocal, time:Date() });
-        var ficheUpdate = await Report.findOne({userId: message.author.id});
+        await ReportPap.findOneAndUpdate({ userId: message.author.id }, { trainer: message.author.username, roleId: tempRole, channelId: tempChannel, channelVocalId: tempChannelVocal, time:Date() });
+        var ficheUpdate = await ReportPap.findOne({userId: message.author.id});
         console.log ('fiche de l utlisateur update: '+ficheUpdate);
 
 
         const messageAnnonce = `Salut <@`+message.author.id+`>, voici tes salons pour l'organisation de ton Expédition Dynamax.
-Comment fonctionne le salon : tu recevras un tag à chaque fois que quelqu'un rejoindra ton expédition.
+Comment fonctionne le salon : à chaque fois que quelqu'un rejoindra ton expédition, un message sera posté sur le salon.
 (*il n'y a pour le moment pas de limite au nombre de personnes qui rejoignent le salon*)
 
 Vous avez à votre disposition un salon vocal qui s'appelle <#`+tempChannelVocal+`>.
                     
 Enfin, une fois votre session terminée, il te suffira (à toi uniquement) de taper la commande :
-\`\`end session\`\` 
+__\`\`end session\`\`__
 Ce qui aura pour effet, de supprimer tes salons, le rôle qui lui sont associé et ton annonce dans le salon <#`+auth.channelInfos+`>.
 
-Merci d'avoir choisi nos services pour organiser des Expédition Dynamax.
-Nous vous souhaitons bonne chance avec le légendaire __**`+Pokemonname+`**__!
+Si vous souhaitez continuer votre expédition mais qu'une personne n'en a plus besoin, vous pouvez lui retirer les accès en tapant la commande :
+__\`\`bye @tagLaPersonne\`\`__
 
-`+linkPokemon;
-               
-        await message.guild.channels.cache.get(tempChannel.id).send(messageAnnonce).then(async pourPin => {
-            await pourPin.pin();
-        });
+Merci d'avoir choisi nos services pour organiser des Expédition Dynamax.
+Nous vous souhaitons bonne chance avec le légendaire __**`+Pokemonname+`**__!`
+
+        const imageAnnonce = linkPokemon;
+
+        await setTimeout(async function() {
+            await message.guild.channels.cache.get(tempChannel.id).send(messageAnnonce).then(async pourPin => {
+            await pourPin.pin();});
+        }, 100)
+        await setTimeout(async function() {
+            await message.guild.channels.cache.get(tempChannel.id).send(imageAnnonce).then(async pourPin => {
+            await pourPin.pin();});
+        }, 200)
+        await setTimeout(async function() {
+            const fetched = await message.guild.channels.cache.get(tempChannel.id).messages.fetch({ limit: 5 });
+            const notPinned = await fetched.filter(fetchedMsg => !fetchedMsg.pinned);
+            await message.guild.channels.cache.get(tempChannel.id).bulkDelete(notPinned);
+        }, 1000)
 
         const exampleEmbed = new Discord.MessageEmbed()
             .setColor('#0099ff')
@@ -222,7 +428,7 @@ Nous vous souhaitons bonne chance avec le légendaire __**`+Pokemonname+`**__!
         await message.channel.send(exampleEmbed).then(async sentClue => {
             await sentClue.react(auth.emoteDynamax);
 
-            await Report.findOneAndUpdate({ userId: message.author.id }, { messageId: sentClue, time:Date() });});
+            await ReportPap.findOneAndUpdate({ userId: message.author.id }, { messageId: sentClue, time:Date() });});
 
             await message.guild.members.fetch(message.author.id).then((auteurRaid) => {
                     auteurRaid.roles.add(tempRole);})
@@ -231,22 +437,47 @@ Nous vous souhaitons bonne chance avec le légendaire __**`+Pokemonname+`**__!
         return (reaction.emoji.id === auth.emoteDynamax && user.id!=auth.roleBot);
         };
 
-        var ficheCollect = await Report.findOne({userId: message.author.id});
+        var ficheCollect = await ReportPap.findOne({userId: message.author.id});
 
 
-        const fetchedMessageId = message.guild.channels.cache.get(auth.channelInfos).messages.cache.get(ficheCollect.messageId)
+        const fetchedMessageId = message.guild.channels.cache.get(auth.channelInfos).messages.cache.get(ficheCollect.messageId);
 
-
-        const tempCollector = fetchedMessageId.createReactionCollector(filter);
+        const tempCollector = fetchedMessageId.createReactionCollector(filter, { dispose: true });
         console.log(tempCollector);
 
         tempCollector.on('collect', async (reaction, participant) => {
             console.log(`Collected ${reaction.emoji.name} from ${participant.tag}`);
             fetchedMessageId.guild.members.fetch(participant).then(async (ajoutPpl) => {
-            var ficheRoleCollect = await Report.findOne({userId: message.author.id});
+            var ficheRoleCollect = await ReportPap.findOne({userId: message.author.id});
             ajoutPpl.roles.add(ficheRoleCollect.roleId);
-            const messageDepart = "<@"+message.author.id + ">, un dresseur·euse vient de rejoindre ton expédition ! Bienvenue <@"+participant+"> !";
+
+        const messageDepart = new Discord.MessageEmbed()
+            .setColor('#0099ff')
+            .setTitle("Un·e nouveau·elle Dresseur·euse se prépare au combat !")
+            .setAuthor("Proposé par : "+message.author.username)
+            .setDescription("<@"+message.author.id + ">, un·e dresseur·euse vient de rejoindre ton expédition !\rBienvenue à toi, <@"+participant+"> !")
+                .setThumbnail(participant.avatarURL());
+
+            //const messageDepart = "<@"+message.author.id + ">, un dresseur·euse vient de rejoindre ton expédition ! Bienvenue <@"+participant+"> !";
             console.log(fetchedMessageId.guild.channels.cache.get(ficheRoleCollect.channelId).send(messageDepart));
+            }); 
+        });
+
+
+        tempCollector.on('remove', async (reaction, participant) => {
+            console.log(`Removed ${reaction.emoji.name} from ${participant.tag}`);
+            fetchedMessageId.guild.members.fetch(participant).then(async (removePpl) => {
+            var ficheRoleCollect = await ReportPap.findOne({userId: message.author.id});
+            removePpl.roles.remove(ficheRoleCollect.roleId);
+
+        /*const messageDepart = new Discord.MessageEmbed()
+            .setColor('#0099ff')
+            .setTitle("Un·e nouveau·elle Dresseur·euse se prépare au combat !")
+            .setAuthor("Proposé par : "+message.author.username)
+            .setDescription("<@"+message.author.id + ">, un·e dresseur·euse vient de rejoindre ton expédition !\rBienvenue à toi, <@"+participant+"> !")
+                .setThumbnail(participant.avatarURL());*/
+
+            //console.log(fetchedMessageId.guild.channels.cache.get(ficheRoleCollect.channelId).send(messageDepart));
             }); 
         });
     //fin du if de la nouvelle commande ne pas toucher
@@ -258,7 +489,7 @@ Nous vous souhaitons bonne chance avec le légendaire __**`+Pokemonname+`**__!
 
 function create(message) {
     
-    const report = new Report({
+    const reportPap = new ReportPap({
     _id : mongoose.Types.ObjectId(),
     userId : message.author.id,
     messageId : 0,
@@ -269,6 +500,6 @@ function create(message) {
     time: Date()
     });
 
-report.save().then(result => console.log(result)).catch(err => console.log(err));
+reportPap.save().then(result => console.log(result)).catch(err => console.log(err));
 
 }
